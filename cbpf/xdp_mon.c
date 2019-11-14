@@ -1,5 +1,5 @@
 #include "bpf_helpers.h"
-#include <linux/tcp.h>
+//#include <linux/tcp.h>
 
 
 // Ethernet header
@@ -24,7 +24,7 @@ struct iphdrv4 {
   __u32 daddr;
 } __attribute__((packed));
 
- struct tcphdr1 {
+ struct tcphdr {
    __u16 source;
    __u16 dest;
  } __attribute__((packed));
@@ -64,15 +64,16 @@ static inline int proc_tcp(struct xdp_md *ctx, __u32 nh_off) {
 	void *data = (void *)(long)ctx->data;
 
   
-  if (data + nh_off + sizeof(struct tcphdr) > data_end) {
-     return XDP_ABORTED;
+  if (data + nh_off + sizeof(struct tcphdr) + 4 > data_end) {
+     return XDP_DROP;
   }
 
   struct tcphdr *tcp = data + nh_off;
-  if (tcp->source < 250) {
-    __u64 *counter = bpf_map_lookup_elem(&tcpmap, &tcp->source);
+  if (tcp->dest == 22 || tcp->source == 22) {
+    __u32 index = 0;
+    __u64 *counter = bpf_map_lookup_elem(&tcpmap, &index);
     if (counter) {
-      (*counter)++;
+      (*counter)++; 
     }
   }
 

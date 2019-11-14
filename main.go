@@ -79,15 +79,15 @@ func main() {
 				d := binary.LittleEndian.Uint64(value[16:24])
 				fmt.Printf("%18s    %v  %v  tcp=%v %v\n", ipList[i], a, b, d, value)
 
-				for i:=0; i < 200; i++ {
-				vtcp, err := tcpmap.LookupInt(i)
-				if err != nil {
-					log.Fatal(err)
+				for i := 0; i < 200; i++ {
+					vtcp, err := tcpmap.LookupInt(i)
+					if err != nil {
+						log.Fatal(err)
+					}
+					if vtcp > 0 {
+						fmt.Printf("%v\n", vtcp)
+					}
 				}
-				if vtcp > 0 {
-				fmt.Printf("%v\n", vtcp)
-				}
-				}	
 			}
 		case <-ctrlC:
 			fmt.Println("\nDetaching program and exit")

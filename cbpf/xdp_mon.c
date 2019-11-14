@@ -32,7 +32,9 @@ struct iphdrv4 {
  struct records{
 	__u64 rx_packets;
 	__u64 rx_bytes;
-  __u16 rx_tcp;
+  __u64 rx_tcp;
+  __u64 rx_udp;
+  __u64 rx_icmp;
 };
 
 BPF_MAP_DEF(stats4) = {
@@ -64,14 +66,13 @@ static inline int proc_tcp(struct xdp_md *ctx, __u32 nh_off) {
 	void *data = (void *)(long)ctx->data;
 
   
-  if (data + nh_off + sizeof(struct tcphdr) + 4 > data_end) {
+  if (data + nh_off + sizeof(struct tcphdr) > data_end) {
      return XDP_DROP;
   }
 
   struct tcphdr *tcp = data + nh_off;
-  if (tcp->dest == 22 || tcp->source == 22) {
-    __u32 index = 0;
-    __u64 *counter = bpf_map_lookup_elem(&tcpmap, &index);
+  if (tcp->dest < 250 || tcp->source < 250) {
+    __u64 *counter = bpf_map_lookup_elem(&tcpmap, &tcp->source);
     if (counter) {
       (*counter)++; 
     }
@@ -95,15 +96,24 @@ static inline int proc_packet_v4(struct xdp_md *ctx, __u32 nh_off) {
     __u32 index = *(__u32*)rule_idx; 
     struct records *recs  = bpf_map_lookup_elem(&stats4, &index);
       if (recs) {
-
         recs->rx_packets++;
-        recs->rx_bytes += data_end - data;
+        recs->rx_bytes += (data_end - data);
 
         nh_off += sizeof(*ip);
 
         if (ip->protocol == 6) {
           recs->rx_tcp++;
           return proc_tcp(ctx, nh_off);
+        }
+
+        if (ip->protocol == 17) {
+          recs->rx_udp++;
+          return proc_tcp(ctx, nh_off); 
+        }
+
+        if (ip->protocol == 1) {
+          recs->rx_icmp++;
+          return XDP_PASS;
         }
 
       }
@@ -128,9 +138,9 @@ int monitor(struct xdp_md *ctx) {
   }
 
   // none ipv4 packets
-  if (eth_proto != 0x08U) {
-    return XDP_PASS;
-  }
+  // if (eth_proto != 0x08U) {
+  //   return XDP_PASS;
+  // }
 
   return proc_packet_v4(ctx, nh_off);
 }

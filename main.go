@@ -38,7 +38,7 @@ func main() {
 		log.Println("eBPF map 'tcpmap' not found")
 	}
 
-	ipList := []string{"0.0.0.0/0"}
+	ipList := []string{"192.168.55.15/32"}
 	for index, ip := range ipList {
 		err = subnets.Insert(goebpf.CreateLPMtrieKey(ip), index)
 		if err != nil {
@@ -74,18 +74,21 @@ func main() {
 				if err != nil {
 					log.Fatal("LookupInt failed: %v", err)
 				}
-				a := binary.LittleEndian.Uint64(value[0:8])
-				b := binary.LittleEndian.Uint64(value[8:16])
-				d := binary.LittleEndian.Uint64(value[16:24])
-				fmt.Printf("%18s    %v  %v  tcp=%v %v\n", ipList[i], a, b, d, value)
+				packets := binary.LittleEndian.Uint64(value[0:8])
+				volume := binary.LittleEndian.Uint64(value[8:16])
+				tcpCounter := binary.LittleEndian.Uint64(value[16:24])
+				udpCounter := binary.LittleEndian.Uint64(value[24:32])
+				icmpCounter := binary.LittleEndian.Uint64(value[32:40])
+				fmt.Printf("%18s    %v  vol=%v  tcp=%v, udp=%v icmp=%v\n",
+					ipList[i], packets, volume, tcpCounter, udpCounter, icmpCounter)
 
-				for i := 0; i < 200; i++ {
+				for i := 0; i < 250; i++ {
 					vtcp, err := tcpmap.LookupInt(i)
 					if err != nil {
 						log.Fatal(err)
 					}
 					if vtcp > 0 {
-						fmt.Printf("%v\n", vtcp)
+						fmt.Printf("%v %v\n", i, vtcp)
 					}
 				}
 			}
